@@ -342,10 +342,6 @@ void test2g()
   t4 = times(&tmsbuf);
   if ( t4 == (clock_t) -1) e(6);
   if (t4 - t3 < CLOCKS_PER_SEC) e(7);
-  if (tmsbuf.tms_utime < 0) e(8);
-  if (tmsbuf.tms_stime < 0) e(9);
-  if (tmsbuf.tms_cutime < 0) e(10);
-  if (tmsbuf.tms_cstime < 0) e(11);
 }
 
 void sigpip(s)
