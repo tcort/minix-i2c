@@ -55,16 +55,15 @@ open_fb(struct fb_data *fb_d, char *fb_path)
 		return -3;
 	}
 
-	/* hard code the settings */
-	fb_d->buf->w = 1024;
-	fb_d->buf->h = 600;
-	fb_d->buf->bpp = 32;
-	fb_d->buf->bytes_per_pixel = 4;
+	fb_d->buf->w = variable_screen_info.xres;
+	fb_d->buf->h = variable_screen_info.yres;
+	fb_d->buf->bpp = variable_screen_info.bits_per_pixel;
+	fb_d->buf->bytes_per_pixel = variable_screen_info.bits_per_pixel/8;
 	fb_d->buf->line_length = fb_d->buf->w * fb_d->buf->bytes_per_pixel;
-	fb_d->buf->fmt.a.shift = 24;
-	fb_d->buf->fmt.r.shift = 16;
-	fb_d->buf->fmt.g.shift = 8;
-	fb_d->buf->fmt.b.shift = 0;
+	fb_d->buf->fmt.a.shift = variable_screen_info.transp.offset;
+	fb_d->buf->fmt.r.shift = variable_screen_info.red.offset;
+	fb_d->buf->fmt.g.shift = variable_screen_info.green.offset;
+	fb_d->buf->fmt.b.shift = variable_screen_info.blue.offset;
 
 	fb_d->buf->fmt.a.mask = 0xf;
 	fb_d->buf->fmt.r.mask = 0xf;
