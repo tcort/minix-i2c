@@ -155,6 +155,26 @@ capemgr() {
     done
 }
 
+# Virtual Cape Manager - load BBB specific virtual capes.
+vcapemgr() {
+
+    VIRTUAL_CAPES="BB-BONELT-HDMIN"
+
+    for CAPE in ${VIRTUAL_CAPES}
+    do
+        # Look for a cape specific RC script.
+        if [ -x /etc/rc.capes/${CAPE} ]
+        then
+            # Load the drivers for the cape and do any other configuration.
+            . "/etc/rc.capes/${CAPE}"
+        else
+            echo ""
+            echo "** /etc/rc.capes/${CAPE} is missing."
+            echo ""
+        fi
+    done
+}
+
 DAEMONS=/etc/rc.daemons
 
 case $action in
@@ -256,23 +276,6 @@ start)
 			up tps65217 -label tps65217.1.24 \
 			        -args 'bus=1 address=0x24'
 
-			# check for the presence of a display
-			eepromread -f /dev/i2c-2 -n > /dev/null 2>&1
-			RESULT=$?
-			if [ $RESULT -eq 0 ]
-			then
-				# start eeprom driver for reading EDID.
-				test -e /dev/eepromb2s50 || \
-					(cd /dev && MAKEDEV eepromb2s50)
-				up cat24c256 -dev /dev/eepromb2s50 \
-					-label cat24c256.2.50 \
-					-args 'bus=2 address=0x50'
-
-				# start frame buffer
-				#up fb -dev /dev/fb0 -args edid.0=cat24c256.2.50
-				# fb hasn't been ported to AM335X yet.
-			fi
-
 			# Detect expansion boards and start drivers.
 			capemgr
 
@@ -293,16 +296,9 @@ start)
 			up tps65217 -label tps65217.1.24 \
 			        -args 'bus=1 address=0x24'
 
-			# Start TDA19988 driver for reading EDID.
-			up tda19988 -label tda19988.1.3470 -args \
-				'cec_bus=1 cec_address=0x34 hdmi_bus=1 hdmi_address=0x70'
-
-			# start frame buffer
-			#up fb -dev /dev/fb0 -args edid.0=tda19988.1.3470
-			# fb hasn't been ported to AM335X yet.
-
 			# Detect expansion boards and start drivers.
 			capemgr
+			vcapemgr
 
 			;;
 

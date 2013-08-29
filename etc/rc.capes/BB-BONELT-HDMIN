@@ -1,0 +1,33 @@
+#!/bin/sh
+#
+# Start-up script for the BeagleBone Black HDMI (no audio) virtual cape.
+#
+# The BealgeBone Black has an on-board HDMI transmitter which can be activated
+# for HDMI output. It's a "virtual cape" on Linux and Minix because it uses
+# up pins on the BBB's expansion header and we want a way to enable it or
+# disable it automatically at boot depending on whether a conflicting cape
+# (i.e. LCD cape) is attached.
+#
+# The HDMI audio output uses 3 additional pins. To handle the case where
+# those pins are used for some other cape, Linux has two HDMI virtual
+# capes: BB-BONELT-HDMI (with audio), BB-BONELT-HDMIN (without audio). Since
+# Minix/arm doesn't have audio yet, we just have the BB-BONELT-HDMIN cape.
+
+# Check if the 'fb' driver is already running.
+ps ax | grep fb | grep -v -q grep
+RESULT=$?
+if [ $RESULT -eq 0 ]
+then
+	# another cape must be using the LCD pins, don't setup this one.
+	return
+fi
+
+# TDA19988 HDMI Transmitter
+/bin/service up /usr/sbin/tda19988 -label tda19988.1.3470 -args \
+  'cec_bus=1 cec_address=0x34 hdmi_bus=1 hdmi_address=0x70' && echo " tda19988"
+
+##### Disabled until fb and tda19988 are ported to am335x.
+# Frame Buffer
+#/bin/service up /usr/sbin/fb -dev /dev/fb0 -args edid.0=tda19988.1.3470 && \
+#  echo " fb"
+
