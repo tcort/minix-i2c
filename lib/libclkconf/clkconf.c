@@ -63,6 +63,12 @@ clkconf_init()
 }
 
 int
+clkconf_get(u32_t clk)
+{
+	return read32(base + clk);
+}
+
+int
 clkconf_set(u32_t clk, u32_t mask, u32_t value)
 {
 	set32(base + clk, mask, value);

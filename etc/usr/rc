@@ -297,8 +297,15 @@ start)
 			        -args 'bus=1 address=0x24'
 
 			# Detect expansion boards and start drivers.
-			capemgr
-			vcapemgr
+			# TAC XXX TODO comment out for testing
+			#capemgr
+			#vcapemgr
+			mkdir -p /gpio
+			mount -t gpio none /gpio
+			service up /usr/sbin/fb -dev /dev/fb0
+			cat /gpio/LCD_ENOn
+			cat /gpio/BACKLIGHTOn
+			splash &
 
 			;;
 

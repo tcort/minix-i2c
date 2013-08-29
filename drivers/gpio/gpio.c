@@ -174,6 +174,13 @@ init_hook(void)
 
 	add_gpio_inode("LCD_EN", (32 * 3) + 19, GPIO_MODE_OUTPUT);
 
+	/* Export GPIO1_18 (P9-14 on BBB) output as BACKLIGHT */
+
+	sys_padconf(CONTROL_CONF_MCASP0_FSR, 0xffffffff,
+	    (CONTROL_CONF_PUTYPESEL | CONTROL_CONF_MUXMODE(7)));
+
+	add_gpio_inode("BACKLIGHT", (32 * 1) + 18, GPIO_MODE_OUTPUT);
+
 	/* Export GPIO1_17 (P9-23 on BBB) input as RIGHT */
 
 	/* assumes external pull-up resistor (10K) */

@@ -31,7 +31,7 @@ SUBDIR=	add_route arp ash at backup btrace \
 	unstack update uud uue version vol \
 	whereis which write writeisofs fetch \
 	zdump zmodem pkgin_cd pkgin_all \
-	worldstone updateboot update_bootcfg
+	worldstone updateboot update_bootcfg splash
 
 .if ${MACHINE_ARCH} == "i386"
 SUBDIR+=	atnormalize dosread fdisk loadfont \

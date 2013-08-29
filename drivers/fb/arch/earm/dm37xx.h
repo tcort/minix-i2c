@@ -1,5 +1,15 @@
-#ifndef __DSS_H__
-#define __DSS_H__ 
+#ifndef __FB_DM37XX_H
+#define __FB_DM37XX_H
+
+#include <minix/fb.h>
+
+/* entry points from the main fb driver */
+int dm37xx_fb_init(int minor, struct device *dev, struct edid_info *info);
+int dm37xx_get_device(int minor, struct device *dev);
+int dm37xx_get_varscreeninfo(int minor, struct fb_var_screeninfo *fbvsp);
+int dm37xx_put_varscreeninfo(int minor, struct fb_var_screeninfo *fbvs_copy);
+int dm37xx_get_fixscreeninfo(int minor, struct fb_fix_screeninfo *fbfsp);
+int dm37xx_pan_display(int minor, struct fb_var_screeninfo *fbvs_copy);
 
 /* DSS Base Registers */
 #define OMAP3_DSS_BASE			0x48050000
@@ -62,4 +72,5 @@
 #define DISPC_GFXBURSTSIZE_4		0x0
 #define DISPC_GFXBURSTSIZE_8		0x1
 #define DISPC_GFXBURSTSIZE_16		0x2
-#endif /* __DSS_H__ */
+
+#endif /* __FB_DM37XX_H */

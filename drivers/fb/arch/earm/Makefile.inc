@@ -4,4 +4,4 @@
 HERE=${.CURDIR}/arch/${MACHINE_ARCH}
 .PATH:  ${HERE}
 
-SRCS +=	fb_arch.c
+SRCS +=	fb_arch.c am335x.c dm37xx.c

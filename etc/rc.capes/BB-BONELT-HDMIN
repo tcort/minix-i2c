@@ -23,8 +23,9 @@ then
 fi
 
 # TDA19988 HDMI Transmitter
-/bin/service up /usr/sbin/tda19988 -label tda19988.1.3470 -args \
-  'cec_bus=1 cec_address=0x34 hdmi_bus=1 hdmi_address=0x70' && echo " tda19988"
+# TAC XXX temporarily comment out for testing
+#/bin/service up /usr/sbin/tda19988 -label tda19988.1.3470 -args \
+#  'cec_bus=1 cec_address=0x34 hdmi_bus=1 hdmi_address=0x70' && echo " tda19988"
 
 ##### Disabled until fb and tda19988 are ported to am335x.
 # Frame Buffer

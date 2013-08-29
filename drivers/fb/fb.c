@@ -3,6 +3,7 @@
 #include <minix/drivers.h>
 #include <minix/ds.h>
 #include <minix/sysutil.h>
+#include <minix/log.h>
 #include <minix/type.h>
 #include <minix/vm.h>
 #include <sys/ioc_fb.h>
@@ -34,6 +35,7 @@ static int fb_do_read(endpoint_t ep, iovec_t *iov, int minor, u64_t pos,
 static int fb_do_write(endpoint_t ep, iovec_t *iov, int minor, u64_t pos,
 	size_t *io_bytes);
 static int fb_ioctl(message *m);
+static int fb_other(message * m);
 static void paint_bootlogo(int minor);
 static void paint_restartlogo(int minor);
 static void paint_centered(int minor, char *data, int width, int height);
@@ -52,17 +54,26 @@ static int lu_state_restore(void);
 /* Entry points to the fb driver. */
 static struct chardriver fb_tab =
 {
-	fb_open,
-	fb_close,
-	fb_ioctl,
-	fb_prepare,
-	fb_transfer,
-	nop_cleanup,
-	nop_alarm,
-	nop_cancel,
-	nop_select,
-	NULL
+	.cdr_open = fb_open,
+	.cdr_close = fb_close,
+	.cdr_ioctl = fb_ioctl,
+	.cdr_prepare = fb_prepare,
+	.cdr_transfer = fb_transfer,
+	.cdr_cleanup = nop_cleanup,
+	.cdr_alarm = nop_alarm,
+	.cdr_cancel = nop_cancel,
+	.cdr_select = nop_select,
+	.cdr_other = fb_other
 };
+
+/** logging - use with log_warn(), log_info(), log_debug(), log_trace() */
+static struct log log = {
+	.name = "fb_base",
+	.log_level = LEVEL_INFO,
+	.log_func = default_log
+};
+
+
 
 /** Represents the /dev/fb device. */
 static struct device fb_device[FB_DEV_NR];
@@ -70,6 +81,9 @@ static int fb_minor, has_restarted = 0;
 static u64_t has_restarted_t1, has_restarted_t2;
 
 static int open_counter[FB_DEV_NR];		/* Open count */
+
+/* Arch specific functions */
+static struct arch_fb fbs[FB_DEV_NR];
 
 static int
 fb_open(message *m)
@@ -86,7 +100,7 @@ fb_open(message *m)
 		infop = (r == 0) ? &info : NULL;
 	}
 
-	if (arch_fb_init(m->DEVICE, &fb_device[m->DEVICE], infop) == OK) {
+	if (fbs[m->DEVICE].fb_init(m->DEVICE, &fb_device[m->DEVICE], infop) == OK) {
 		open_counter[m->DEVICE]++;
 		if (!initialized) {
 			if (has_restarted) {
@@ -154,7 +168,7 @@ fb_do_read(endpoint_t ep, iovec_t *iov, int minor, u64_t pos, size_t *io_bytes)
 {
 	struct device dev;
 
-	arch_get_device(minor, &dev);
+	fbs[minor].get_device(minor, &dev);
 
 	if (pos >= dev.dv_size) return EINVAL;
 
@@ -209,12 +223,39 @@ fb_ioctl(message *m)
 }
 
 static int
+fb_other(message * m)
+{
+	int r;
+	int minor;
+
+	minor = m->DEVICE;
+	if (minor != 0) {
+		log_warn(&log, "Bad minor number %d\n", minor);	
+		return EINVAL;
+	}
+
+	/* handle hardware interrupts */
+	if (m->m_source == HARDWARE) {
+		/* only some chips are interrupt based */
+		if (fbs[minor].intr_handler != NULL) {
+			r = fbs[minor].intr_handler();
+		} else {
+			r = ENOSYS;
+		}
+	} else {
+		r = EINVAL;
+	}
+
+	return r;
+}
+
+static int
 do_get_varscreeninfo(int minor, endpoint_t ep, cp_grant_id_t gid)
 {
 	int r;
 	struct fb_var_screeninfo fbvs;
 
-	if ((r = arch_get_varscreeninfo(minor, &fbvs)) == OK) {
+	if ((r = fbs[minor].get_varscreeninfo(minor, &fbvs)) == OK) {
 		r = sys_safecopyto(ep, gid, 0, (vir_bytes) &fbvs, sizeof(fbvs));
 	}
 
@@ -236,7 +277,7 @@ do_put_varscreeninfo(int minor, endpoint_t ep, cp_grant_id_t gid)
 		return r;
 	}
 
-	return arch_put_varscreeninfo(minor, &fbvs_copy);
+	return fbs[minor].put_varscreeninfo(minor, &fbvs_copy);
 }
 
 static int
@@ -254,7 +295,7 @@ do_pan_display(int minor, endpoint_t ep, cp_grant_id_t gid)
                 return r;
         }
 
-        return arch_pan_display(minor, &fbvs_copy);
+        return fbs[minor].pan_display(minor, &fbvs_copy);
 }
 
 static int
@@ -263,7 +304,7 @@ do_get_fixscreeninfo(int minor, endpoint_t ep, cp_grant_id_t gid)
         int r;
         struct fb_fix_screeninfo fbfs;
 
-        if ((r = arch_get_fixscreeninfo(minor, &fbfs)) == OK) {
+        if ((r = fbs[minor].get_fixscreeninfo(minor, &fbfs)) == OK) {
                 r = sys_safecopyto(ep, gid, 0, (vir_bytes) &fbfs, sizeof(fbfs));
         }
 
@@ -275,7 +316,7 @@ fb_do_write(endpoint_t ep, iovec_t *iov, int minor, u64_t pos, size_t *io_bytes)
 {
 	struct device dev;
 
-	arch_get_device(minor, &dev);
+	fbs[minor].get_device(minor, &dev);
 
 	if (pos >= dev.dv_size) {
 		return EINVAL;
@@ -344,6 +385,7 @@ static int
 sef_cb_init(int type, sef_init_info_t *UNUSED(info))
 {
 /* Initialize the fb driver. */
+	int r, i;
 	int do_announce_driver = TRUE;
 
 	open_counter[0] = 0;
@@ -364,6 +406,14 @@ sef_cb_init(int type, sef_init_info_t *UNUSED(info))
 	    printf("framebuffer restarted: pid %d\n", getpid());
 	    has_restarted = 1;
 	    break;
+	}
+
+	for (i = 0; i < FB_DEV_NR; i++) {
+		/* setup struct of arch specific function pointers */
+		r = arch_fb_setup(&fbs[i]);
+		if (r != OK) {
+			return r;
+		}
 	}
 
 	/* Announce we are up when necessary. */
@@ -428,15 +478,15 @@ paint_centered(int minor, char *data, int width, int height)
 	struct fb_var_screeninfo fbvs;
 
 	/* Put display in a known state to simplify positioning code below */
-	if ((r = arch_get_varscreeninfo(minor, &fbvs)) != OK) {
+	if ((r = fbs[minor].get_varscreeninfo(minor, &fbvs)) != OK) {
 		printf("fb: unable to get screen info: %d\n", r);
 	}
 	fbvs.yoffset = 0;
-	if ((r = arch_pan_display(minor, &fbvs)) != OK) {
+	if ((r = fbs[minor].pan_display(minor, &fbvs)) != OK) {
 		printf("fb: unable to pan display: %d\n", r);
 	}
 
-	arch_get_device(minor, &dev);
+	fbs[minor].get_device(minor, &dev);
 
 	/* Paint on a white canvas */
 	bytespp = fbvs.bits_per_pixel / 8;

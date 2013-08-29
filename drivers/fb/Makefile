@@ -12,8 +12,8 @@ SRCS+=	edid.c pickmode.c videomode.c vesagtf.c
 # Put this dir and the EDID headers (dev/videomode/*.h) in the search path.
 CPPFLAGS+= -I${.CURDIR} -I${NETBSDSRCDIR}/sys
 
-DPADD+=	${LIBCHARDRIVER} ${LIBSYS}
-LDADD+=	-lchardriver -lsys
+DPADD+=	${LIBCHARDRIVER} ${LIBSYS} ${LIBTIMERS} ${LIBCLKCONF}
+LDADD+=	-lchardriver -lsys -ltimers -lclkconf
 
 MAN=
 
